@@ -1,0 +1,45 @@
+import numpy as np
+from multiprocessing import Pool, cpu_count
+
+def init_state():
+    s = "01001001001001000000"
+    return np.array(list(s), dtype=str)
+
+def make_slices(state):
+    n = len(state)
+    c = cpu_count()
+    parts = []
+    for i in range(c):
+        a = i * n // c
+        b = (i + 1) * n // c
+        parts.append((state.copy(), a, b))
+    return parts
+
+def process_slice(args):
+    state, start, end = args
+    out = []
+    for i in range(start, end):
+        if i == 0:
+            out.append(("0", i))
+        else:
+            out.append((state[i-1], i))
+    return out
+
+def recombine(base, updates):
+    new = base.copy()
+    for block in updates:
+        for val, pos in block:
+            new[pos] = val
+    return new
+
+state = init_state()
+pool = Pool(cpu_count())
+
+for g in range(10):
+    print(f"gen {g}: {''.join(state)}")
+    parts = make_slices(state)
+    updates = pool.map(process_slice, parts)
+    state = recombine(state, updates)
+
+pool.close()
+pool.join()
